@@ -38,7 +38,7 @@ function ManageStationIncomes.onTradeSuccess(stationId, buyerId)
 end
 
 function ManageStationIncomes.getUpdateInterval()
-    return 5
+    return 180
 end
 
 --- Does a station have a ship heading to it
@@ -117,7 +117,7 @@ function ManageStationIncomes.getResourceIncome()
 
     for i = 1, NumMaterials() do
         local mats = math.max(0, probabilities[i - 1] - 0.1) * (richness)
-        mats = (0.5 + math.random() / 2) * 6000 * mats
+        mats = (0.5 + math.random() / 2) * 10000 * mats
 
         if math.random() < 0.2 then
             mats = mats * 3 -- Lucky day!
