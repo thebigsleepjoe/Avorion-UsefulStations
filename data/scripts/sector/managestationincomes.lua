@@ -68,7 +68,7 @@ function ManageStationIncomes.giveStationResources(station, _ship)
         if amount > 0 then
             -- print("Giving " .. amount .. " " .. mat.name .. " to " .. faction.name .. " for " .. station.title)
             faction:receiveResource(
-                Format("Received %1% %2% tax from Resource Depot %3%", amount, mat.name, station.title),
+                Format("Received %1% %2% tax from Resource Depot %3%", amount, mat.name, station.name),
                 mat,
                 amount
             )
