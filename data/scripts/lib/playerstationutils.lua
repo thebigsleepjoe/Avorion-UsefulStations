@@ -19,8 +19,6 @@ function PlayerStationUtils.spawnTraderFor(station)
 
     if sector:getValue("war_zone") or sector:getValue("no_trade_zone") then return end
 
-    print("Spawning custom trader")
-
     local tradingFaction = Galaxy():getNearestFaction(x, y)
 
     local eradicatedFactions = getGlobal("eradicated_factions") or {}

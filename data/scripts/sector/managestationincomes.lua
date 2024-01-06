@@ -23,7 +23,11 @@ function ManageStationIncomes.onTradeSuccess(stationId, buyerId)
     if not (station and buyer) then return end
 
     local hashMap = {
-        ["Resource Depot" % _t] = ManageStationIncomes.giveStationResources
+        ["Resource Depot" % _t] = ManageStationIncomes.giveStationResources,
+        ["Smuggler's Market" % _t] = ManageStationIncomes.giveStationMoney,
+        ["Casino" % _t] = ManageStationIncomes.giveStationMoney,
+        ["Repair Dock" % _t] = ManageStationIncomes.giveStationMoney,
+        ["Shipyard" % _t] = ManageStationIncomes.giveStationMoney,
     }
 
     if hashMap[station.title] then
@@ -34,7 +38,7 @@ function ManageStationIncomes.onTradeSuccess(stationId, buyerId)
 end
 
 function ManageStationIncomes.getUpdateInterval()
-    return 120
+    return 5
 end
 
 --- Does a station have a ship heading to it
@@ -72,6 +76,38 @@ function ManageStationIncomes.giveStationResources(station, _ship)
     end
 end
 
+function ManageStationIncomes.giveStationMoney(station, _ship)
+    local faction = Faction(station.factionIndex)
+    if not faction then return end
+
+    local money = math.floor((0.3 + (2 * math.random() / 3)) * 10000)
+    if math.random() < 0.2 then
+        money = money * 3 -- Lucky day!
+    end
+    local msgOptions = {
+        default = "Gained %s credits in taxes from %s %s",
+        ["Smuggler's Market" % _t] = "Gained %s credits tax from unbranding/fencing at %s %s.",
+        ["Casino" % _t] = "Gained %s credits from gambling at %s %s.",
+        ["Repair Dock" % _t] = "Gained %s credits from repair fees at %s %s.",
+        ["Shipyard" % _t] = "Gained %s credits from repair/construction fees at %s %s.",
+    }
+
+    --- A hash of multipliers for money gained at various station types.
+    local hashMoneyMap = {
+        default = 1.0,
+        ["Smuggler's Market" % _t] = 1.25,
+        ["Casino" % _t] = 0.75,
+        ["Repair Dock" % _t] = 1.5,
+        ["Shipyard" % _t] = 2.0,
+    }
+
+    money = math.floor(money * (hashMoneyMap[station.title] or hashMoneyMap.default))
+
+    local msg = msgOptions[station.title] or msgOptions.default
+    local msgFormatted = string.format(msg, createMonetaryString(money), station.title, station.name)
+    faction:receive(msgFormatted, money)
+end
+
 function ManageStationIncomes.getResourceIncome()
     local x, y = Sector():getCoordinates()
     local probabilities = Balancing_GetMaterialProbability(x, y)
@@ -94,8 +130,6 @@ function ManageStationIncomes.getResourceIncome()
 end
 
 function ManageStationIncomes.manageResourceDepot(station, instantTrade)
-    if math.random() < 0.5 then return end
-
     local giveRes = ManageStationIncomes.giveStationResources
     if instantTrade then
         giveRes(station)
@@ -107,10 +141,36 @@ function ManageStationIncomes.manageResourceDepot(station, instantTrade)
     end
 end
 
+function ManageStationIncomes.manageMoneyStation(station, instantTrade)
+    if instantTrade then
+        ManageStationIncomes.giveStationMoney(station)
+        return
+    end
+
+    if not ManageStationIncomes.isStationReserved(station) then
+        PlayerStationUtils.spawnTraderFor(station)
+    end
+end
+
 function ManageStationIncomes.manageStation(station)
     local hashMap = {
-        ["Resource Depot" % _t] = ManageStationIncomes.manageResourceDepot
+        ["Resource Depot" % _t] = ManageStationIncomes.manageResourceDepot,
+        ["Smuggler's Market" % _t] = ManageStationIncomes.manageMoneyStation,
+        ["Casino" % _t] = ManageStationIncomes.manageMoneyStation,
+        ["Repair Dock" % _t] = ManageStationIncomes.manageMoneyStation,
+        ["Shipyard" % _t] = ManageStationIncomes.manageMoneyStation,
     }
+
+    local hashMapChances = {
+        default = 0.5,
+        ["Resource Depot" % _t] = 0.5,
+        ["Smuggler's Market" % _t] = 0.6,
+        ["Casino" % _t] = 0.7,
+        ["Repair Dock" % _t] = 0.4,
+        ["Shipyard" % _t] = 0.3,
+    }
+
+    if math.random() > (hashMapChances[station.title] or hashMapChances.default) then return end
 
     if hashMap[station.title] then
         hashMap[station.title](station, ManageStationIncomes.isInstantTrade())

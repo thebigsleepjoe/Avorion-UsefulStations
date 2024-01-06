@@ -91,7 +91,6 @@ function InteractPlayerStation.updateServer(timeStep)
 
             if tractorWaitCount > 2 * 60 then -- seconds
                 docks:stopPulling(ship)
-                print("IPS: ship is aborting trade because tractor beam is stuck")
                 InteractPlayerStation.leaveSector(ship, "tractor stuck")
                 return
             end
@@ -116,6 +115,7 @@ function InteractPlayerStation.updateServer(timeStep)
     -- fly back to the end of the lights
     if stage == "leaving" then
         if DockAI.flyAwayFromDock(ship, station) then
+            docks:stopPulling(ship)
             InteractPlayerStation.leaveSector(ship, "leaving stage")
         end
     end
