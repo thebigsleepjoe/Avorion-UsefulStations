@@ -31,7 +31,7 @@ local function tableRandom(haystack)
     return haystack[selection]
 end
 
-function PlayerStationUtils.spawnTraderFor(station, shipTypes)
+function PlayerStationUtils.spawnTraderFor(namespace, station, shipTypes)
     shipTypes = shipTypes or { "freighter" }
     local sector = Sector()
     local x, y = sector:getCoordinates()
@@ -39,13 +39,13 @@ function PlayerStationUtils.spawnTraderFor(station, shipTypes)
 
     if sector:getValue("war_zone") then return end
 
-    local tradingFaction = Galaxy():getNearestFaction(x, y)
+    local faction = Galaxy():getNearestFaction(x, y)
 
     local eradicatedFactions = getGlobal("eradicated_factions") or {}
-    if eradicatedFactions[tradingFaction.index] == true then return end
+    if eradicatedFactions[faction.index] == true then return end
 
     -- factions at war with each other don't trade
-    if tradingFaction:getRelations(station.factionIndex) < -40000 then return end
+    if faction:getRelations(station.factionIndex) < -40000 then return end
 
     local pos = random():getDirection() * 1500
     local matrix = MatrixLookUpPosition(normalize(-pos), vec3(0, 1, 0), pos)
@@ -70,8 +70,7 @@ function PlayerStationUtils.spawnTraderFor(station, shipTypes)
         ship:setValue("plystation_partner", station.id.string)
     end
 
-    local gen = AsyncShipGenerator(nil, generatedFunc)
+    local gen = AsyncShipGenerator(namespace, generatedFunc)
     local genFunc = PlayerStationUtils.GetAsyncGenFor(chosenType)
     gen[genFunc](gen, tradingFaction, matrix)
-    -- gen:createFreighterShip(tradingFaction, matrix)
 end

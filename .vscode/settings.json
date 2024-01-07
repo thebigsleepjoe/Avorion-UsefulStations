@@ -13,6 +13,11 @@
         "onServer",
         "_t",
         "NumMaterials",
-        "Material"
+        "Material",
+        "random",
+        "MatrixLookUpPosition",
+        "normalize",
+        "vec3",
+        "valid"
     ]
 }

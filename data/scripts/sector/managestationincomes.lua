@@ -5,7 +5,7 @@ include("stringutility")
 include("randomext")
 include("callable")
 include("playerstationutils")
-include("upgradegenerator")
+local UpgradeGenerator = include("upgradegenerator")()
 local TurretGenerator = include("sectorturretgenerator")()
 
 -- namespace ManageStationIncomes
@@ -122,29 +122,30 @@ function ManageStationIncomes.giveStationMoney(station, _seller)
 
     money = math.floor(money * mapping.quantity)
 
-    local msg = string.format(mapping.giveMsg, createMonetaryString(money), station.name)
+    local msg = string.format(mapping.giveMsg, createMonetaryString(money) .. " credits", station.name)
     faction:receive(msg, money)
 end
 
---- Generate a distribution function that will give either money, resources, a system, or a turret based on some chance values.
+--- Generate a distribution function that will give either money, resources, a system, or a turret based on some chance values, which are treated as percentages adding up to 1.
 function ManageStationIncomes.giveStationDistribution(moneyChance, resourceChance, systemChance, turretChance)
-    local resultFunc = function(station, _seller)
-        local testMoney = random():test(moneyChance)
-        local testResource = random():test(resourceChance)
-        local testSystem = random():test(systemChance)
-        local testTurret = random():test(turretChance)
+    local totalChance = moneyChance + resourceChance + systemChance + turretChance
 
-        if testMoney then
+    local resultFunc = function(station, _seller)
+        local choice = random():getFloat(0, totalChance)
+
+        if choice < moneyChance then
             ManageStationIncomes.giveStationMoney(station, _seller)
-        elseif testResource then
+        elseif choice < moneyChance + resourceChance then
             ManageStationIncomes.giveStationResources(station, _seller)
-        elseif testSystem then
+        elseif choice < moneyChance + resourceChance + systemChance then
             ManageStationIncomes.giveStationSystem(station, _seller)
-        elseif testTurret then
+        elseif choice < moneyChance + resourceChance + systemChance + turretChance then
             ManageStationIncomes.giveStationTurret(station, _seller)
+        else
+            print("Numbers do not add up to 1.0: %d, %d, %d, %d", moneyChance, resourceChance, systemChance, turretChance)
         end
     end
-    return func
+    return resultFunc
 end
 
 function ManageStationIncomes.getResourceIncome()
@@ -170,7 +171,7 @@ end
 
 function ManageStationIncomes.manageStation(station)
     local mapping = ManageStationIncomes.getMapping(station)
-    if math.random() >= mapping.chance then return end
+    if random():test(mapping.chance) then return end
 
     local isInstant = ManageStationIncomes.isInstantTrade()
     if isInstant then
@@ -178,8 +179,9 @@ function ManageStationIncomes.manageStation(station)
         return
     end
 
-    if not ManageStationIncomes.isStationReserved(station) then
-        PlayerStationUtils.spawnTraderFor(station, mapping.traderTypes)
+    local isReserved = ManageStationIncomes.isStationReserved(station)
+    if not isReserved then
+        PlayerStationUtils.spawnTraderFor(ManageStationIncomes, station, mapping.traderTypes)
     end
 end
 
@@ -217,7 +219,6 @@ stationMappings = {
         traderTypes = { "freighter" },                            -- The options for ship types that may spawn.
         --[[
         Trader type options:
-            "miner"
             "trader"
             "military"
             "freighter"
@@ -252,18 +253,46 @@ stationMappings = {
         quantity = 2.3,
         traderTypes = { "freighter", "trader", "military" }
     },
+    ["Travel Hub" % _t] = {
+        giveFunction = ManageStationIncomes.giveStationMoney,
+        giveMsg = "Received %s in taxes from Travel Hub %s.",
+        chance = 0.4,
+        quantity = 2.3,
+        traderTypes = { "freighter", "trader", "military", "torpedo" }
+    },
     ["Equipment Dock" % _t] = {
         giveFunction = ManageStationIncomes.giveStationDistribution(0.1, 0.0, 0.7, 0.2),
         giveMsg = "Received %s in taxes from Equipment Dock %s.",
         chance = 0.35,
         quantity = 1.0,
-        traderTypes = { "military" }
+        traderTypes = { "military", "torpedo", "freighter", "trader" }
+    },
+    ["Research Station" % _t] = {
+        giveFunction = ManageStationIncomes.giveStationDistribution(0.0, 0.0, 0.8, 0.2),
+        giveMsg = "Received %s in taxes from Research Station %s.",
+        chance = 0.2,
+        quantity = 1.0,
+        traderTypes = { "freighter", "trader", "military", "torpedo" }
+    },
+    ["Military Outpost" % _t] = {
+        giveFunction = ManageStationIncomes.giveStationDistribution(0.0, 0.0, 0.3, 0.7),
+        giveMsg = "Received %s in taxes from Military Outpost %s.",
+        chance = 0.35,
+        quantity = 1.0,
+        traderTypes = { "military", "torpedo" }
     },
     ["Turret Factory" % _t] = {
         giveFunction = ManageStationIncomes.giveStationTurret,
         giveMsg = "Received %s in taxes from Turret Factory %s.",
         chance = 0.35,
         quantity = 1.0,
-        traderTypes = { "military" }
+        traderTypes = { "military", "torpedo" }
+    },
+    ["Fighter Factory" % _t] = {
+        giveFunction = ManageStationIncomes.giveStationMoney,
+        giveMsg = "Received %s in taxes from Fighter Factory %s.",
+        chance = 0.35,
+        quantity = 1.0,
+        traderTypes = { "military", "torpedo" }
     },
 }
