@@ -31,7 +31,7 @@ function ManageStationIncomes.onTradeSuccess(stationId, buyerId)
 end
 
 function ManageStationIncomes.getUpdateInterval()
-    return 5
+    return 150
 end
 
 --- Does a station have a ship heading to it
@@ -156,7 +156,8 @@ function ManageStationIncomes.getResourceIncome()
 
     for i = 1, NumMaterials() do
         local probFactor = math.max(0, probabilities[i - 1])       -- [0, 1]
-        local matRichness = math.max(probFactor * (richness), 0.5) -- [0.5, 1]
+        if probFactor <= 0.05 then goto continue end
+        local matRichness = math.max(probFactor * (richness), 0.2) -- [0.2, 1]
         local mats = (0.5 + math.random() / 2) * 8000              -- [4000, 8000]
         mats = mats * matRichness                                  -- [2000, 8000]
 
@@ -168,6 +169,8 @@ function ManageStationIncomes.getResourceIncome()
         end
 
         amounts[i] = mats
+
+        ::continue::
     end
 
     return amounts
