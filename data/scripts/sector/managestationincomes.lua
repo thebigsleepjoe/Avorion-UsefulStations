@@ -221,7 +221,7 @@ end
 stationMappings = {
     ["Resource Depot" % _t] = {
         giveFunction = ManageStationIncomes.giveStationResources, -- The function called on a successful trade
-        giveMsg = "Received %s in taxes from Resource Depot %s.", -- Printed in chat as economy msg or faction msg. Does not apply to systems or turrets.
+        giveMsg = "Earned %s in taxes from Resource Depot %s.",   -- Printed in chat as economy msg or faction msg. Does not apply to systems or turrets.
         chance = 0.5,                                             -- Affects chance of recieving income per cycle
         quantity = 1.0,                                           -- Relavant for resources and money. Multiplies the amount of income recieved.
         traderTypes = { "freighter" },                            -- The options for ship types that may spawn.
@@ -235,35 +235,35 @@ stationMappings = {
     },
     ["Smuggler's Market" % _t] = {
         giveFunction = ManageStationIncomes.giveStationMoney,
-        giveMsg = "Received %s in taxes from Smuggler's Market %s.",
+        giveMsg = "Received %s in unbranding fees from Smuggler's Market %s.",
         chance = 0.6,
         quantity = 1.25,
         traderTypes = { "freighter", "trader", "military" }
     },
     ["Casino" % _t] = {
         giveFunction = ManageStationIncomes.giveStationMoney,
-        giveMsg = "Received %s in taxes from Casino %s.",
+        giveMsg = "Received %s in gambling income from Casino %s.",
         chance = 0.7,
         quantity = 1.5,
         traderTypes = { "freighter", "trader", "military" }
     },
     ["Repair Dock" % _t] = {
         giveFunction = ManageStationIncomes.giveStationMoney,
-        giveMsg = "Received %s in taxes from Repair Dock %s.",
+        giveMsg = "Received %s in repair fees from Repair Dock %s.",
         chance = 0.2,
         quantity = 3.0,
         traderTypes = { "freighter", "trader", "military" }
     },
     ["Shipyard" % _t] = {
         giveFunction = ManageStationIncomes.giveStationMoney,
-        giveMsg = "Received %s in taxes from Shipyard %s.",
+        giveMsg = "Received %s in repair fees from Shipyard %s.",
         chance = 0.3,
         quantity = 2.3,
         traderTypes = { "freighter", "trader", "military" }
     },
     ["Travel Hub" % _t] = {
         giveFunction = ManageStationIncomes.giveStationMoney,
-        giveMsg = "Received %s in taxes from Travel Hub %s.",
+        giveMsg = "Gained %s in taxes from Travel Hub %s.",
         chance = 0.3,
         quantity = 2.3,
         traderTypes = { "freighter", "trader", "military", "torpedo" }
@@ -291,14 +291,14 @@ stationMappings = {
     },
     ["Turret Factory" % _t] = {
         giveFunction = ManageStationIncomes.giveStationTurret,
-        giveMsg = "Received %s in taxes from Turret Factory %s.",
+        giveMsg = "Gained %s in taxes from Turret Factory %s.",
         chance = 0.4,
         quantity = 1.0,
         traderTypes = { "military", "torpedo" }
     },
     ["Fighter Factory" % _t] = {
         giveFunction = ManageStationIncomes.giveStationMoney,
-        giveMsg = "Received %s in taxes from Fighter Factory %s.",
+        giveMsg = "Earned %s in fighter costs from Fighter Factory %s.",
         chance = 0.4,
         quantity = 1.0,
         traderTypes = { "military", "torpedo" }
