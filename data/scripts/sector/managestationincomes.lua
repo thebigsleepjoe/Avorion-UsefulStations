@@ -31,7 +31,7 @@ function ManageStationIncomes.onTradeSuccess(stationId, buyerId)
 end
 
 function ManageStationIncomes.getUpdateInterval()
-    return 150
+    return 120
 end
 
 --- Does a station have a ship heading to it
@@ -115,9 +115,9 @@ function ManageStationIncomes.giveStationMoney(station, _seller)
     local mapping = ManageStationIncomes.getMapping(station)
     if not faction then return end
 
-    local money = math.floor((0.3 + (2 * math.random() / 3)) * 10000)
+    local money = math.floor((0.3 + (2 * math.random() / 3)) * 16000)
     if math.random() < 0.2 then
-        money = money * 4 -- Lucky day!
+        money = money * 2 -- Lucky day!
     end
 
     money = math.floor(money * mapping.quantity)
@@ -178,6 +178,7 @@ end
 
 function ManageStationIncomes.manageStation(station)
     local mapping = ManageStationIncomes.getMapping(station)
+    if not mapping then return end
     if random():test(mapping.chance) then return end
 
     local isInstant = ManageStationIncomes.isInstantTrade()
@@ -263,7 +264,7 @@ stationMappings = {
     ["Travel Hub" % _t] = {
         giveFunction = ManageStationIncomes.giveStationMoney,
         giveMsg = "Received %s in taxes from Travel Hub %s.",
-        chance = 0.4,
+        chance = 0.3,
         quantity = 2.3,
         traderTypes = { "freighter", "trader", "military", "torpedo" }
     },
