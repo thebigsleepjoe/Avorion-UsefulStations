@@ -5,6 +5,8 @@ include("stringutility")
 include("randomext")
 include("callable")
 include("playerstationutils")
+include("upgradegenerator")
+include("sectorturretgenerator")
 
 -- namespace ManageStationIncomes
 ManageStationIncomes = {}
@@ -56,7 +58,7 @@ function ManageStationIncomes.isStationReserved(station)
 end
 
 --- Gives some resources to the station owner.
-function ManageStationIncomes.giveStationResources(station, _ship)
+function ManageStationIncomes.giveStationResources(station, _seller)
     local faction = Faction(station.factionIndex)
     local amounts = ManageStationIncomes.getResourceIncome()
     if not faction then return end
@@ -76,7 +78,37 @@ function ManageStationIncomes.giveStationResources(station, _ship)
     end
 end
 
-function ManageStationIncomes.giveStationMoney(station, _ship)
+function ManageStationIncomes.giveStationSystem(station, _seller)
+    local sector = Sector()
+    local x, y = sector:getCoordinates()
+    local system = UpgradeGenerator:generateSectorSystem(x, y)
+
+    local faction = Faction(station.factionIndex)
+    local inv = faction:getInventory()
+    local msg = string.format("Received a system from %s %s.", station.title, station.name)
+
+    inv:addOrDrop(system)
+    faction:sendChatMessage(station, ChatMessageType.Economy, msg)
+end
+
+---Generate and give a turret to the station based off of the seller (optional) and weapontype (optional)
+---@param station Station
+---@param _seller? Entity
+---@param weapontype? WeaponType
+function ManageStationIncomes.giveStationTurret(station, _seller, weapontype)
+    local sector = Sector()
+    local x, y = sector:getCoordinates()
+    local turret = SectorTurretGenerator:generate(x, y)
+
+    local faction = Faction(station.factionIndex)
+    local inv = faction:getInventory()
+    local msg = string.format("Received a turret from %s %s.", station.title, station.name)
+
+    inv:addOrDrop(turret)
+    faction:sendChatMessage(station, ChatMessageType.Economy, msg)
+end
+
+function ManageStationIncomes.giveStationMoney(station, _seller)
     local faction = Faction(station.factionIndex)
     if not faction then return end
 
@@ -129,36 +161,15 @@ function ManageStationIncomes.getResourceIncome()
     return amounts
 end
 
-function ManageStationIncomes.manageResourceDepot(station, instantTrade)
-    local giveRes = ManageStationIncomes.giveStationResources
-    if instantTrade then
-        giveRes(station)
-        return
-    end
-
-    if not ManageStationIncomes.isStationReserved(station) then
-        PlayerStationUtils.spawnTraderFor(station)
-    end
-end
-
-function ManageStationIncomes.manageMoneyStation(station, instantTrade)
-    if instantTrade then
-        ManageStationIncomes.giveStationMoney(station)
-        return
-    end
-
-    if not ManageStationIncomes.isStationReserved(station) then
-        PlayerStationUtils.spawnTraderFor(station)
-    end
-end
-
 function ManageStationIncomes.manageStation(station)
-    local hashMap = {
-        ["Resource Depot" % _t] = ManageStationIncomes.manageResourceDepot,
-        ["Smuggler's Market" % _t] = ManageStationIncomes.manageMoneyStation,
-        ["Casino" % _t] = ManageStationIncomes.manageMoneyStation,
-        ["Repair Dock" % _t] = ManageStationIncomes.manageMoneyStation,
-        ["Shipyard" % _t] = ManageStationIncomes.manageMoneyStation,
+    local hashMapInstantTrades = {
+        ["Resource Depot" % _t] = ManageStationIncomes.giveStationResources,
+        ["Smuggler's Market" % _t] = ManageStationIncomes.giveStationMoney,
+        ["Casino" % _t] = ManageStationIncomes.giveStationMoney,
+        ["Repair Dock" % _t] = ManageStationIncomes.giveStationMoney,
+        ["Shipyard" % _t] = ManageStationIncomes.giveStationMoney,
+        ["Equipment Dock" % _t] = ManageStationIncomes.giveStationSystem,
+        ["Turret Factory" % _t] = ManageStationIncomes.giveStationTurret,
     }
 
     local hashMapChances = {
@@ -168,12 +179,23 @@ function ManageStationIncomes.manageStation(station)
         ["Casino" % _t] = 0.7,
         ["Repair Dock" % _t] = 0.4,
         ["Shipyard" % _t] = 0.3,
+        ["Equipment Dock" % _t] = 0.35,
+        ["Turret Factory" % _t] = 0.35,
     }
 
     if math.random() > (hashMapChances[station.title] or hashMapChances.default) then return end
 
-    if hashMap[station.title] then
-        hashMap[station.title](station, ManageStationIncomes.isInstantTrade())
+    local instantTradeFunc = hashMapInstantTrades[station.title]
+    if not instantTradeFunc then return end
+
+    local isInstant = ManageStationIncomes.isInstantTrade()
+    if isInstant then
+        instantTradeFunc(station)
+        return
+    end
+
+    if not ManageStationIncomes.isStationReserved(station) then
+        PlayerStationUtils.spawnTraderFor(station)
     end
 end
 
