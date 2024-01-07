@@ -263,7 +263,7 @@ stationMappings = {
     },
     ["Travel Hub" % _t] = {
         giveFunction = ManageStationIncomes.giveStationMoney,
-        giveMsg = "Gained %s in taxes from Travel Hub %s.",
+        giveMsg = "Gained %s in travel fees from Travel Hub %s.",
         chance = 0.3,
         quantity = 2.3,
         traderTypes = { "freighter", "trader", "military", "torpedo" }
