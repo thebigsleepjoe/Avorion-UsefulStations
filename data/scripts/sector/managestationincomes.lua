@@ -168,9 +168,8 @@ function ManageStationIncomes.getResourceIncome()
             end
         end
 
-        amounts[i] = mats
-
         ::continue::
+        amounts[i] = mats or 0
     end
 
     return amounts
