@@ -150,17 +150,21 @@ end
 
 function ManageStationIncomes.getResourceIncome()
     local x, y = Sector():getCoordinates()
-    local probabilities = Balancing_GetMaterialProbability(x, y)
-    local richness = Balancing_GetSectorRichnessFactor(x, y)
-
+    local probabilities = Balancing_GetMaterialProbability(x, y) -- table of [0, 1]
+    local richness = Balancing_GetSectorRichnessFactor(x, y, 1)  -- [0, 1]
     local amounts = {}
 
     for i = 1, NumMaterials() do
-        local mats = math.max(0, probabilities[i - 1] - 0.1) * (richness)
-        mats = (0.5 + math.random() / 2) * 7000 * mats
+        local probFactor = math.max(0, probabilities[i - 1])       -- [0, 1]
+        local matRichness = math.max(probFactor * (richness), 0.5) -- [0.5, 1]
+        local mats = (0.5 + math.random() / 2) * 8000              -- [4000, 8000]
+        mats = mats * matRichness                                  -- [2000, 8000]
 
-        if math.random() < 0.2 then
-            mats = mats * 4 -- Lucky day!
+        if random():test(0.2) then                                 -- 20% chance
+            mats = mats * 2                                        -- [4000, 16000]
+            if random():test(0.1) then                             -- 2% chance
+                mats = mats * 2                                    -- [16000, 32000]
+            end
         end
 
         amounts[i] = mats
@@ -263,14 +267,14 @@ stationMappings = {
     ["Equipment Dock" % _t] = {
         giveFunction = ManageStationIncomes.giveStationDistribution(0.1, 0.0, 0.7, 0.2),
         giveMsg = "Received %s in taxes from Equipment Dock %s.",
-        chance = 0.35,
+        chance = 0.4,
         quantity = 1.0,
         traderTypes = { "military", "torpedo", "freighter", "trader" }
     },
     ["Research Station" % _t] = {
         giveFunction = ManageStationIncomes.giveStationDistribution(0.0, 0.0, 0.8, 0.2),
         giveMsg = "Received %s in taxes from Research Station %s.",
-        chance = 0.2,
+        chance = 0.4,
         quantity = 1.0,
         traderTypes = { "freighter", "trader", "military", "torpedo" }
     },
@@ -284,14 +288,14 @@ stationMappings = {
     ["Turret Factory" % _t] = {
         giveFunction = ManageStationIncomes.giveStationTurret,
         giveMsg = "Received %s in taxes from Turret Factory %s.",
-        chance = 0.35,
+        chance = 0.4,
         quantity = 1.0,
         traderTypes = { "military", "torpedo" }
     },
     ["Fighter Factory" % _t] = {
         giveFunction = ManageStationIncomes.giveStationMoney,
         giveMsg = "Received %s in taxes from Fighter Factory %s.",
-        chance = 0.35,
+        chance = 0.4,
         quantity = 1.0,
         traderTypes = { "military", "torpedo" }
     },

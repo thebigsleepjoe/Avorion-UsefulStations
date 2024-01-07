@@ -72,5 +72,5 @@ function PlayerStationUtils.spawnTraderFor(namespace, station, shipTypes)
 
     local gen = AsyncShipGenerator(namespace, generatedFunc)
     local genFunc = PlayerStationUtils.GetAsyncGenFor(chosenType)
-    gen[genFunc](gen, tradingFaction, matrix)
+    gen[genFunc](gen, faction, matrix)
 end
