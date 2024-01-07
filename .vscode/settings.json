@@ -1,0 +1,18 @@
+{
+    "Lua.diagnostics.globals": [
+        "Faction",
+        "Sector",
+        "EntityType",
+        "Balancing_GetMaterialProbability",
+        "Balancing_GetSectorRichnessFactor",
+        "createMonetaryString",
+        "ChatMessageType",
+        "SectorTurretGenerator",
+        "UpgradeGenerator",
+        "Entity",
+        "onServer",
+        "_t",
+        "NumMaterials",
+        "Material"
+    ]
+}

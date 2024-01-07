@@ -13,9 +13,29 @@ PlayerStationUtils = {}
 
 if not onServer() then return end
 
-function PlayerStationUtils.spawnTraderFor(station)
+function PlayerStationUtils.GetAsyncGenFor(type)
+    local hash = {
+        miner = "createMiningShip",
+        trader = "createTradingShip",
+        military = "createMilitaryShip",
+        freighter = "createFreighterShip",
+        torpedo = "createTorpedoShip",
+    }
+
+    return hash[type]
+end
+
+local function tableRandom(haystack)
+    local selection = math.floor(math.random() * (#haystack - 1)) + 1
+
+    return haystack[selection]
+end
+
+function PlayerStationUtils.spawnTraderFor(station, shipTypes)
+    shipTypes = shipTypes or { "freighter" }
     local sector = Sector()
     local x, y = sector:getCoordinates()
+    local chosenType = tableRandom(shipTypes)
 
     if sector:getValue("war_zone") or sector:getValue("no_trade_zone") then return end
 
@@ -32,10 +52,26 @@ function PlayerStationUtils.spawnTraderFor(station)
 
     local generatedFunc = function(ship)
         if not valid(station) then return end
+
+        -- Remove any scripts that may be included with the ship.
+        for i, scriptname in pairs(ship:getScripts()) do
+            -- Check if scriptname starts with 'datat/scripts/entity/ai/'. If so, remove it.
+            if string.find(scriptname, "data/scripts/entity/ai/") then
+                ship:removeScript(scriptname)
+            end
+        end
+
+        -- For compatibility with some types of ships
+        ship:setValue("is_defender", false)
+        ship:setValue("is_miner", false)
+
+        -- Set it up with our values and scripts.
         ship:addScript("merchants/playerstationtrader.lua", station.id.string, station.index)
         ship:setValue("plystation_partner", station.id.string)
     end
 
     local gen = AsyncShipGenerator(nil, generatedFunc)
-    gen:createFreighterShip(tradingFaction, matrix)
+    local genFunc = PlayerStationUtils.GetAsyncGenFor(chosenType)
+    gen[genFunc](gen, tradingFaction, matrix)
+    -- gen:createFreighterShip(tradingFaction, matrix)
 end

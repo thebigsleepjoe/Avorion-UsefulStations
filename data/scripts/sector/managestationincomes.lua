@@ -6,12 +6,14 @@ include("randomext")
 include("callable")
 include("playerstationutils")
 include("upgradegenerator")
-include("sectorturretgenerator")
+local TurretGenerator = include("sectorturretgenerator")()
 
 -- namespace ManageStationIncomes
 ManageStationIncomes = {}
 
 if not onServer() then return end
+
+local stationMappings
 
 function ManageStationIncomes.initialize()
     local sector = Sector()
@@ -21,26 +23,15 @@ end
 function ManageStationIncomes.onTradeSuccess(stationId, buyerId)
     local station = Entity(stationId)
     local buyer = Entity(buyerId)
+    local mapping = ManageStationIncomes.getMapping(station)
 
-    if not (station and buyer) then return end
+    if not (station and buyer and mapping) then return end
 
-    local hashMap = {
-        ["Resource Depot" % _t] = ManageStationIncomes.giveStationResources,
-        ["Smuggler's Market" % _t] = ManageStationIncomes.giveStationMoney,
-        ["Casino" % _t] = ManageStationIncomes.giveStationMoney,
-        ["Repair Dock" % _t] = ManageStationIncomes.giveStationMoney,
-        ["Shipyard" % _t] = ManageStationIncomes.giveStationMoney,
-    }
-
-    if hashMap[station.title] then
-        hashMap[station.title](station, buyer)
-    else
-        print("No registered income for station type '%1%'", station.title)
-    end
+    mapping.giveFunction(station, buyer)
 end
 
 function ManageStationIncomes.getUpdateInterval()
-    return 180
+    return 5
 end
 
 --- Does a station have a ship heading to it
@@ -57,23 +48,30 @@ function ManageStationIncomes.isStationReserved(station)
     return false
 end
 
+function ManageStationIncomes.getMapping(station)
+    local title = station.title
+    local mapping = stationMappings[title % _t]
+    -- print("Returning mapping (%s) for title %s", mapping and "found one" or "nil", title % _t)
+    return mapping
+end
+
 --- Gives some resources to the station owner.
 function ManageStationIncomes.giveStationResources(station, _seller)
     local faction = Faction(station.factionIndex)
     local amounts = ManageStationIncomes.getResourceIncome()
+    local mapping = ManageStationIncomes.getMapping(station)
     if not faction then return end
 
     for i = 1, NumMaterials() do
         local amount = math.floor(amounts[i])
         local mat = Material(i - 1)
 
+        amount = math.floor(amount * mapping.quantity)
+
         if amount > 0 then
-            -- print("Giving " .. amount .. " " .. mat.name .. " to " .. faction.name .. " for " .. station.title)
-            faction:receiveResource(
-                Format("Received %1% %2% tax from Resource Depot %3%", amount, mat.name, station.name),
-                mat,
-                amount
-            )
+            local msgUnformatted = mapping.giveMsg
+            local msg = string.format(msgUnformatted, createMonetaryString(amount) .. " " .. mat.name, station.name)
+            faction:receiveResource(msg, mat, amount)
         end
     end
 end
@@ -82,10 +80,11 @@ function ManageStationIncomes.giveStationSystem(station, _seller)
     local sector = Sector()
     local x, y = sector:getCoordinates()
     local system = UpgradeGenerator:generateSectorSystem(x, y)
+    local mapping = ManageStationIncomes.getMapping(station)
 
     local faction = Faction(station.factionIndex)
     local inv = faction:getInventory()
-    local msg = string.format("Received a system from %s %s.", station.title, station.name)
+    local msg = string.format(mapping.giveMsg, "a system", station.name)
 
     inv:addOrDrop(system)
     faction:sendChatMessage(station, ChatMessageType.Economy, msg)
@@ -98,11 +97,14 @@ end
 function ManageStationIncomes.giveStationTurret(station, _seller, weapontype)
     local sector = Sector()
     local x, y = sector:getCoordinates()
-    local turret = SectorTurretGenerator:generate(x, y)
+    local mapping = ManageStationIncomes.getMapping(station)
+
+
+    local turret = InventoryTurret(TurretGenerator:generate(x, y))
 
     local faction = Faction(station.factionIndex)
     local inv = faction:getInventory()
-    local msg = string.format("Received a turret from %s %s.", station.title, station.name)
+    local msg = string.format(mapping.giveMsg, "a turret", station.name)
 
     inv:addOrDrop(turret)
     faction:sendChatMessage(station, ChatMessageType.Economy, msg)
@@ -110,34 +112,39 @@ end
 
 function ManageStationIncomes.giveStationMoney(station, _seller)
     local faction = Faction(station.factionIndex)
+    local mapping = ManageStationIncomes.getMapping(station)
     if not faction then return end
 
     local money = math.floor((0.3 + (2 * math.random() / 3)) * 10000)
     if math.random() < 0.2 then
-        money = money * 3 -- Lucky day!
+        money = money * 4 -- Lucky day!
     end
-    local msgOptions = {
-        default = "Gained %s credits in taxes from %s %s",
-        ["Smuggler's Market" % _t] = "Gained %s credits tax from unbranding/fencing at %s %s.",
-        ["Casino" % _t] = "Gained %s credits from gambling at %s %s.",
-        ["Repair Dock" % _t] = "Gained %s credits from repair fees at %s %s.",
-        ["Shipyard" % _t] = "Gained %s credits from repair/construction fees at %s %s.",
-    }
 
-    --- A hash of multipliers for money gained at various station types.
-    local hashMoneyMap = {
-        default = 1.0,
-        ["Smuggler's Market" % _t] = 1.25,
-        ["Casino" % _t] = 0.75,
-        ["Repair Dock" % _t] = 1.5,
-        ["Shipyard" % _t] = 2.0,
-    }
+    money = math.floor(money * mapping.quantity)
 
-    money = math.floor(money * (hashMoneyMap[station.title] or hashMoneyMap.default))
+    local msg = string.format(mapping.giveMsg, createMonetaryString(money), station.name)
+    faction:receive(msg, money)
+end
 
-    local msg = msgOptions[station.title] or msgOptions.default
-    local msgFormatted = string.format(msg, createMonetaryString(money), station.title, station.name)
-    faction:receive(msgFormatted, money)
+--- Generate a distribution function that will give either money, resources, a system, or a turret based on some chance values.
+function ManageStationIncomes.giveStationDistribution(moneyChance, resourceChance, systemChance, turretChance)
+    local resultFunc = function(station, _seller)
+        local testMoney = random():test(moneyChance)
+        local testResource = random():test(resourceChance)
+        local testSystem = random():test(systemChance)
+        local testTurret = random():test(turretChance)
+
+        if testMoney then
+            ManageStationIncomes.giveStationMoney(station, _seller)
+        elseif testResource then
+            ManageStationIncomes.giveStationResources(station, _seller)
+        elseif testSystem then
+            ManageStationIncomes.giveStationSystem(station, _seller)
+        elseif testTurret then
+            ManageStationIncomes.giveStationTurret(station, _seller)
+        end
+    end
+    return func
 end
 
 function ManageStationIncomes.getResourceIncome()
@@ -149,10 +156,10 @@ function ManageStationIncomes.getResourceIncome()
 
     for i = 1, NumMaterials() do
         local mats = math.max(0, probabilities[i - 1] - 0.1) * (richness)
-        mats = (0.5 + math.random() / 2) * 10000 * mats
+        mats = (0.5 + math.random() / 2) * 7000 * mats
 
         if math.random() < 0.2 then
-            mats = mats * 3 -- Lucky day!
+            mats = mats * 4 -- Lucky day!
         end
 
         amounts[i] = mats
@@ -162,40 +169,17 @@ function ManageStationIncomes.getResourceIncome()
 end
 
 function ManageStationIncomes.manageStation(station)
-    local hashMapInstantTrades = {
-        ["Resource Depot" % _t] = ManageStationIncomes.giveStationResources,
-        ["Smuggler's Market" % _t] = ManageStationIncomes.giveStationMoney,
-        ["Casino" % _t] = ManageStationIncomes.giveStationMoney,
-        ["Repair Dock" % _t] = ManageStationIncomes.giveStationMoney,
-        ["Shipyard" % _t] = ManageStationIncomes.giveStationMoney,
-        ["Equipment Dock" % _t] = ManageStationIncomes.giveStationSystem,
-        ["Turret Factory" % _t] = ManageStationIncomes.giveStationTurret,
-    }
-
-    local hashMapChances = {
-        default = 0.5,
-        ["Resource Depot" % _t] = 0.5,
-        ["Smuggler's Market" % _t] = 0.6,
-        ["Casino" % _t] = 0.7,
-        ["Repair Dock" % _t] = 0.4,
-        ["Shipyard" % _t] = 0.3,
-        ["Equipment Dock" % _t] = 0.35,
-        ["Turret Factory" % _t] = 0.35,
-    }
-
-    if math.random() > (hashMapChances[station.title] or hashMapChances.default) then return end
-
-    local instantTradeFunc = hashMapInstantTrades[station.title]
-    if not instantTradeFunc then return end
+    local mapping = ManageStationIncomes.getMapping(station)
+    if math.random() >= mapping.chance then return end
 
     local isInstant = ManageStationIncomes.isInstantTrade()
     if isInstant then
-        instantTradeFunc(station)
+        mapping.giveFunction(station)
         return
     end
 
     if not ManageStationIncomes.isStationReserved(station) then
-        PlayerStationUtils.spawnTraderFor(station)
+        PlayerStationUtils.spawnTraderFor(station, mapping.traderTypes)
     end
 end
 
@@ -215,7 +199,7 @@ end
 function ManageStationIncomes.updateServer(timeStep)
     if not ManageStationIncomes.isSectorTradeable() then return end
     local stations = { Sector():getEntitiesByType(EntityType.Station) }
-    local plyStations = {}
+
     for _, station in pairs(stations) do
         local faction = Faction(station.factionIndex)
         if faction.isPlayer or faction.isAlliance then
@@ -223,3 +207,63 @@ function ManageStationIncomes.updateServer(timeStep)
         end
     end
 end
+
+stationMappings = {
+    ["Resource Depot" % _t] = {
+        giveFunction = ManageStationIncomes.giveStationResources, -- The function called on a successful trade
+        giveMsg = "Received %s in taxes from Resource Depot %s.", -- Printed in chat as economy msg or faction msg. Does not apply to systems or turrets.
+        chance = 0.5,                                             -- Affects chance of recieving income per cycle
+        quantity = 1.0,                                           -- Relavant for resources and money. Multiplies the amount of income recieved.
+        traderTypes = { "freighter" },                            -- The options for ship types that may spawn.
+        --[[
+        Trader type options:
+            "miner"
+            "trader"
+            "military"
+            "freighter"
+            "torpedo"
+        ]]
+    },
+    ["Smuggler's Market" % _t] = {
+        giveFunction = ManageStationIncomes.giveStationMoney,
+        giveMsg = "Received %s in taxes from Smuggler's Market %s.",
+        chance = 0.6,
+        quantity = 1.25,
+        traderTypes = { "freighter", "trader", "military" }
+    },
+    ["Casino" % _t] = {
+        giveFunction = ManageStationIncomes.giveStationMoney,
+        giveMsg = "Received %s in taxes from Casino %s.",
+        chance = 0.7,
+        quantity = 1.5,
+        traderTypes = { "freighter", "trader", "military" }
+    },
+    ["Repair Dock" % _t] = {
+        giveFunction = ManageStationIncomes.giveStationMoney,
+        giveMsg = "Received %s in taxes from Repair Dock %s.",
+        chance = 0.2,
+        quantity = 3.0,
+        traderTypes = { "freighter", "trader", "military" }
+    },
+    ["Shipyard" % _t] = {
+        giveFunction = ManageStationIncomes.giveStationMoney,
+        giveMsg = "Received %s in taxes from Shipyard %s.",
+        chance = 0.3,
+        quantity = 2.3,
+        traderTypes = { "freighter", "trader", "military" }
+    },
+    ["Equipment Dock" % _t] = {
+        giveFunction = ManageStationIncomes.giveStationDistribution(0.1, 0.0, 0.7, 0.2),
+        giveMsg = "Received %s in taxes from Equipment Dock %s.",
+        chance = 0.35,
+        quantity = 1.0,
+        traderTypes = { "military" }
+    },
+    ["Turret Factory" % _t] = {
+        giveFunction = ManageStationIncomes.giveStationTurret,
+        giveMsg = "Received %s in taxes from Turret Factory %s.",
+        chance = 0.35,
+        quantity = 1.0,
+        traderTypes = { "military" }
+    },
+}

@@ -38,6 +38,15 @@ function PlayerStationTrader.secure()
     }
 end
 
+function PlayerStationTrader.getUpdateInterval()
+    return 1
+end
+
 function PlayerStationTrader.updateServer(timeStep)
+    local sector = Sector()
+    if sector.numPlayers == 0 then
+        sector:sendCallback("onTradeSuccess", data.stationId, Entity().id.string)
+        sector:deleteEntityJumped(Entity())
+    end
     updateServerAI(timeStep)
 end

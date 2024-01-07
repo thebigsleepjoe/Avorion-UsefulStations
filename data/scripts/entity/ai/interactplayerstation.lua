@@ -16,6 +16,7 @@ local stage
 local waitCount
 local tractorWaitCount
 local timeAlive = 0
+local hasTraded = false
 
 if not onServer() then return end
 
@@ -26,12 +27,18 @@ function InteractPlayerStation.initialize(targetId, targetIndex)
 end
 
 function InteractPlayerStation.leaveSector(ship, reason)
+    if not hasTraded then
+        Sector():sendCallback("onTradeSuccess", data.stationId, ship.id.string) -- Send a success anyway to not ruin the player's day.
+        hasTraded = true
+    end
     if ship.aiOwned then
         -- in case the station doesn't exist any more, leave the sector
         ship:addScript("ai/passsector.lua", random():getDirection() * 2000)
     end
 
-    print("Trader ship is leaving because %s", reason or "<NO REASON?>")
+    if reason ~= "leaving stage" then
+        print("Useful Stations: Trader ship is leaving because %s", reason or "<NO REASON??>")
+    end
 
     -- if this is a player / alliance owned ship, terminate the script
     terminate()
@@ -106,6 +113,7 @@ function InteractPlayerStation.updateServer(timeStep)
 
         if waitCount > 25 then -- seconds waiting
             docks:stopPulling(ship)
+            hasTraded = true
             Sector():sendCallback("onTradeSuccess", station.id, ship.id)
             stage = "leaving"
             return
@@ -125,6 +133,7 @@ end
 function InteractPlayerStation.restore(data_in)
     data.stationId = data_in.stationId
     data.stationIndex = data_in.stationIndex
+    hasTraded = data_in.hasTraded
     stage = data_in.stage
     DockAI.restore(data_in)
 end
@@ -135,6 +144,7 @@ function InteractPlayerStation.secure()
     data_out.stationId = data.stationId
     data_out.stationIndex = data.stationIndex
     data_out.stage = stage
+    data_out.hasTraded = hasTraded
     DockAI.secure(data_out)
     return data_out
 end
