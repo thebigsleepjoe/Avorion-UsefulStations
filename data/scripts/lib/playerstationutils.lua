@@ -37,7 +37,7 @@ function PlayerStationUtils.spawnTraderFor(station, shipTypes)
     local x, y = sector:getCoordinates()
     local chosenType = tableRandom(shipTypes)
 
-    if sector:getValue("war_zone") or sector:getValue("no_trade_zone") then return end
+    if sector:getValue("war_zone") then return end
 
     local tradingFaction = Galaxy():getNearestFaction(x, y)
 
