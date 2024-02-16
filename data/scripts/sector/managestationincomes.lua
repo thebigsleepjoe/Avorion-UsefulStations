@@ -212,7 +212,7 @@ function ManageStationIncomes.updateServer(timeStep)
 
     for _, station in pairs(stations) do
         local faction = Faction(station.factionIndex)
-        if faction.isPlayer or faction.isAlliance then
+        if faction and (faction.isPlayer or faction.isAlliance) then
             ManageStationIncomes.manageStation(station)
         end
     end
